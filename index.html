@@ -1,0 +1,549 @@
+<html>
+
+<head>
+    <meta charset="utf8"/>
+    <title>Stable Inspiration</title>
+    <meta licence="cc0" />
+    <style type="text/css">
+        body {
+            background-color: #111;
+            color: #ddd;
+            padding-bottom: 128px;
+            font-family: 'Noto Sans', 'Segoe UI', 'Noto Sans CJK JP', 'Roboto', 'Open Sans', 'Source Sans Pro'
+        }
+        #introduction
+        {
+            text-align: center;
+        }
+        h1
+        {
+            margin: 1em;
+        }
+
+        img {
+            max-width: 512px;
+            border-radius: 25px;
+            margin: 2px;
+            object-fit: scale-down;
+        }
+
+        html, body, #maingallery { width: 100%; }
+        body { margin: 0; }
+
+        #maingallery {
+            padding-top: 4em;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        #infopane
+        {
+            position: fixed;
+            display: block;
+            height: 100%;
+            top: 0;
+            width: 512px;
+            background-color: #222;
+            overflow: scroll;
+            padding: 0.5em 1em;
+            font-size: 14pt;
+            scrollbar-width: thin;
+        }
+
+        #infopane pre
+        {
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+    
+        #infopane dt
+        {
+            font-weight: bold;
+            color: #ffd166;
+        }
+
+        #infopane dt, #infopane dd
+        {
+            margin: 0;
+        }
+
+
+        .left_pane
+        {
+            left: 0;
+        }
+
+        .right_pane
+        {
+            right: 0;
+        }
+
+        .visible_pane
+        {
+            visibility: visible;
+        }
+
+        .hidden_pane
+        {
+            visibility: hidden;
+        }
+
+        .close_button
+        {
+            position: absolute;
+            top: 2em;
+            right: 1em;
+            width: 32px;
+            height: 32px;
+            background-color: rgb(0,0,0);
+            color: #eee;
+            font-weight: bold;
+            border: 1px solid rgb(40,40,40);
+            border-radius: 100%;
+
+
+        }
+    </style>
+</head>
+
+<body>
+<div id="introduction">
+    <h1>Stable Inspiration</h1>
+    <p>A list of pictures I generated, distributed under CC0.</p>
+</div>
+
+
+<div id="maingallery">
+
+</div>
+<div id="infopane" class="left_pane hidden_pane">
+<button id="infopane_hide_button" class="close_button">X</button>
+<div id="infopane_metadata"></div>
+</div>
+<div id="documentBottom"></div>
+
+<script type="text/javascript">
+
+    var main_config = {
+        "main_object": [],
+        "next_load_from": 0,
+        "loaded": false,
+        "dont_load_before": 0,
+        "observer": null
+    }
+
+    /*function debug_message(message)
+    {
+        console.log(message);
+    }*/
+
+    function debug_message(message)
+    {
+
+    }
+
+    /* https://www.w3docs.com/snippets/javascript/how-to-randomize-shuffle-a-javascript-array.html */
+    function shuffle_array(arr) { arr.sort(() => Math.random() - 0.5); }
+
+    function add_image(to_node, image_path)
+    {
+        let img = document.createElement("img");
+        img.src = image_path;
+        to_node.appendChild(img);
+    }
+
+    function load_images()
+    {
+        let wait_time_ms = 2000;
+        if (main_config === undefined || main_config.loaded !== true)
+        {
+            debug_message("Not loading images since the configuration is absent");
+            return;
+        }
+
+        let current_time = Date.now();
+        if (current_time < main_config.dont_load_before)
+        {
+            debug_message("Postponing");
+            return;
+        }
+
+        main_config.dont_load_before = current_time + wait_time_ms;
+
+        let batch_size = 64;
+        let load_from = main_config.next_load_from;
+        let images_info = main_config.main_object.images;
+        let n_images = images_info.length;
+        let load_to = Math.min(load_from+batch_size,n_images);
+        for (let i = load_from; i < load_to; i++)
+        {
+            let image_path = images_info[i].path;
+            add_image(maingallery, image_path);
+        }
+        main_config.next_load_from = load_to;
+    }
+
+    function observer_callback(entries, observer)
+    {
+        debug_message("Called observer");
+        debug_message(entries);
+        debug_message(observer);
+        if (entries[0].intersectionRatio === 1)
+        {
+            load_images()
+        }
+    }
+
+    function setup_infinite_scrolling()
+    {
+        let options = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 1.0
+        }
+
+        let observer = new IntersectionObserver(observer_callback, options);
+        observer.observe(document.getElementById("documentBottom"));
+    }
+
+    function check_config_object(config_object)
+    {
+        return ('images' in config_object) && (config_object['images'].constructor === Array);
+    }
+
+    function json_loaded_callback()
+    {
+        try
+        {
+            debug_message("Loaded !");
+            debug_message(this);
+            var potential_config = JSON.parse(this.responseText);
+            if (!check_config_object(potential_config))
+            {
+                debug_message("Invalid configuration :C");
+                return;
+            }
+            shuffle_array(potential_config['images']);
+            main_config.main_object = potential_config;
+            main_config.loaded = true;
+            load_images();
+
+            setup_infinite_scrolling();
+
+        }
+        catch (e)
+        {
+            debug_message(e);
+        }
+
+    }
+
+    function get_content(content_path, callback, content_type)
+    {
+        const req = new XMLHttpRequest();
+        req.addEventListener("load", callback);
+        req.open("GET", content_path);
+        if (content_type !== undefined)
+        {
+            req.responseType = content_type;
+        }
+        
+        req.send();
+    }
+
+    const PNG_SIGNATURE = 0x474e5089; // new Uint8Array([ 137, 80, 78, 71 ]);
+    const PNG_BINARY_MODE_ON = 0x0A1A0A0D;
+
+    function _read_uint32(buffer, from)
+    {
+        let number_content = buffer.slice(from, from+4);
+        return (
+            (number_content[0] <<  0) |
+            (number_content[1] <<  8) |
+            (number_content[2] << 16) |
+            (number_content[3] << 24));
+    }
+
+    function _read_u32_big_endian(buffer, from)
+    {
+        let number_content = buffer.slice(from, from+4);
+        return (
+            (number_content[0] << 24) |
+            (number_content[1] << 16) |
+            (number_content[2] <<  8) |
+            (number_content[3] <<  0));
+    }
+
+    function _read_fixed_string(buffer, from, string_size)
+    {
+        return new TextDecoder().decode(buffer.slice(from, from+string_size));
+    }
+
+    function png_signature_valid(header)
+    {
+        let signature = _read_uint32(header, 0);
+        
+        if (signature !== PNG_SIGNATURE)
+        {
+            debug_message("Invalid signature");
+            debug_message(signature);
+            debug_message(PNG_SIGNATURE);
+            return false;
+        }
+
+        let binary_mode = _read_uint32(header, 4);
+        if (binary_mode !== PNG_BINARY_MODE_ON)
+        {
+            debug_message("Invalid mode");
+            debug_message(binary_mode);
+            debug_message(PNG_BINARY_MODE_ON);
+            return false;
+        }
+
+        return true;
+    }
+
+    function _buffer_next_0(chunk_data, data_cursor)
+    {
+        data_cursor = Math.min(chunk_data.length, data_cursor);
+        return chunk_data.indexOf(0, data_cursor);
+    }
+
+    function _parse_text_chunk_data(chunk_data, metadata, chunk_type, data_cursor)
+    {
+        let decoder = new TextDecoder();
+        switch(chunk_type)
+        {
+            case 'tEXt':
+                {
+                    while (chunk_data[data_cursor] == 0)
+                    {
+                        data_cursor++;
+                    }
+                    return decoder.decode(chunk_data.slice(data_cursor));
+                }
+                break;
+            case 'iTXt':
+                {
+                    let data_size = chunk_data.length;
+                    data_cursor += 3;
+                    data_cursor = _buffer_next_0(chunk_data, data_cursor);
+                    if (data_cursor < 0)
+                    {
+                        return "";
+                    }
+
+                    data_cursor += 1;
+                    data_cursor = _buffer_next_0(chunk_data, data_cursor);
+                    if (data_cursor < 0)
+                    {
+                        return "";
+                    }
+
+                    data_cursor += 1;
+                    if (data_cursor >= data_size)
+                    {
+                        return "";
+                    }
+
+                    return decoder.decode(chunk_data.slice(data_cursor));
+                }
+        }
+    }
+
+    function _parse_text_chunk(chunk_data, metadata, chunk_type)
+    {
+        let key_end = chunk_data.indexOf(0);
+        
+        let key = _read_fixed_string(chunk_data, 0, key_end);
+        let key_value = _parse_text_chunk_data(chunk_data, metadata, chunk_type, key_end);
+
+        //debug_message("" + key + " : " + key_value);
+
+        metadata.set(key, key_value);
+    }
+
+    function _parse_chunk(png_data, cursor, metadata)
+    {
+        if (png_data.length <= (cursor + 16))
+        {
+            debug_message("Not enough data to continue");
+            return -1;
+        }
+
+        let chunk_size = _read_u32_big_endian(png_data, cursor);
+        cursor += 4;
+
+        /* 4 bytes for the Chunk Type. 4 bytes for the CRC.
+         * And the rest is the Chunk data.
+         */
+        if (png_data.length-4 < chunk_size+4+chunk_size+4)
+        {
+            debug_message("Truncated chunk.");
+            return -1;
+        }
+
+        let chunk_type = _read_fixed_string(png_data, cursor, 4)
+        cursor += 4;
+
+        //debug_message("Chunk type : " + chunk_type + ", size : " + chunk_size);
+
+        let chunk_data = png_data.slice(cursor, cursor+chunk_size);
+        cursor += chunk_size;
+
+        /* FXIME Check the CRC at some point */
+        let crc = _read_uint32(png_data, cursor);
+        cursor += 4;
+
+        switch(chunk_type)
+        {
+            case "tEXt":
+            case "iTXt":
+                {
+                    _parse_text_chunk(chunk_data, metadata, chunk_type);
+                }
+                break;
+        }
+
+        return cursor;
+    }
+
+    function check_png_metadata(content_buffer)
+    {
+        let metadata = new Map();
+        let buffer_size = content_buffer.length;
+        if (buffer_size < 1024)
+        {
+            debug_message("The size appear way too low. Skipping");
+            return metadata;
+        }
+
+        if (!png_signature_valid(content_buffer))
+        {
+            debug_message("Invalid PNG signature");
+            return metadata;
+        }
+
+        let cursor = 8;
+
+        while ((cursor >= 0) & (cursor < buffer_size))
+        {           
+            cursor = _parse_chunk(content_buffer, cursor, metadata)
+        }
+
+        return metadata
+    }
+
+    function load_main_configuration(download_callback)
+    {
+        get_content("paths.json", download_callback);
+    }
+
+    function _node_clear_children(node)
+    {
+        while (node.lastChild) {
+            node.removeChild(node.lastChild);
+        }
+    }
+
+    function show_png_metadata(container_node, metadata)
+    {
+        _node_clear_children(container_node);
+        let list = document.createElement("dl");
+        for (const [key, value] of metadata)
+        {
+            let key_node = document.createElement("dt");
+            let value_node = document.createElement("dd");
+            let value_text_node = document.createElement("pre")
+            key_node.textContent = key;
+            value_text_node.textContent = value;
+
+            value_node.appendChild(value_text_node);
+            list.appendChild(key_node);
+            list.appendChild(value_node);
+        }
+        container_node.appendChild(list);
+
+
+    }
+
+    function show_pane(pane_node)
+    {
+        pane_node.classList.add('visible_pane');
+        pane_node.classList.remove('hidden_pane');
+    }
+
+    function hide_pane(pane_node)
+    {
+        pane_node.classList.add('hidden_pane');
+        pane_node.classList.remove('visible_pane');
+    }
+
+    function image_downloaded()
+    {
+        debug_message(this);
+        if (this.response.constructor !== ArrayBuffer)
+        {
+            debug_message("Unknown response type");
+            return;
+        }
+        let uint8_buffer = new Uint8Array(this.response);
+
+        let parsed_metadata = check_png_metadata(uint8_buffer);
+
+        if (parsed_metadata.size === 0)
+        {
+            return;
+        }
+
+        show_pane(infopane);
+        show_png_metadata(infopane_metadata, parsed_metadata);
+    }
+
+    function image_redownloader(url)
+    {
+        get_content(url, image_downloaded, "arraybuffer");
+    }
+
+    function pane_set_to_left(pane_node)
+    {
+        pane_node.classList.add("left_pane");
+        pane_node.classList.remove("right_pane");
+    }
+
+    function pane_set_to_right(pane_node)
+    {
+        pane_node.classList.add("right_pane");
+        pane_node.classList.remove("left_pane");
+    }
+
+    function image_click_handler(click_event)
+    {
+        let clicked_node = click_event.target;
+        if (clicked_node.nodeName !== "IMG")
+        {
+            hide_pane(infopane);
+            return;
+        }
+        
+        if (click_event.target.getBoundingClientRect().left > 512)
+        {
+            pane_set_to_left(infopane);
+        }
+        else
+        {
+            pane_set_to_right(infopane);
+        }
+        image_redownloader(click_event.target.src);
+    }
+    maingallery.addEventListener("click", image_click_handler);
+    introduction.addEventListener("click", (e) => { hide_pane(infopane); })
+
+    load_main_configuration(json_loaded_callback);
+
+    infopane_hide_button.addEventListener("click", () => { hide_pane(infopane) });
+</script>
+</body>
+</html>
